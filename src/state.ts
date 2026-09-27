@@ -28,20 +28,7 @@ export const newRoom = (name: string, lengths: [string, number][] = [['Wall 1', 
 });
 
 export const defaultState = (): AppState => ({
-  rooms: [
-    newRoom('Living room', [
-      ['North wall', 4650],
-      ['East wall', 3720],
-      ['South wall (left of door)', 2380],
-      ['South wall (right of door)', 1410],
-      ['West wall', 3720],
-    ]),
-    newRoom('Hallway', [
-      ['Long wall', 5320],
-      ['Under stairs', 1180],
-      ['By front door', 760],
-    ]),
-  ],
+  rooms: [newRoom('Room 1')],
   settings: defaultSettings(),
 });
 
