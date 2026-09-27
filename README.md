@@ -11,8 +11,8 @@ each one.
 - Walls longer than your longest board are split into joined pieces, each with
   its own margin.
 
-The app then finds the best mix of boards (least waste, or fewest boards) and
-shows a cutting guide for every board.
+The app then finds the fewest boards to order (and, among equally few, the
+least total length) and shows a cutting guide for every board.
 
 Your measurements are saved in the browser. **Share** copies a link that holds
 all the data (compressed into the URL hash), so it opens pre-filled for anyone

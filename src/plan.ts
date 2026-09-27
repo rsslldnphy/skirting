@@ -114,7 +114,6 @@ export function plan(rooms: Room[], s: Settings, budgetMs = 2500): PlanResult {
     const res = pack({
       sizes: pieces.map((p) => p.cut),
       stocks,
-      goal: s.goal,
       deadline: performance.now() + ms,
     });
     if (!res) return null;

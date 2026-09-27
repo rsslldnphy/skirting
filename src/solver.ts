@@ -1,11 +1,8 @@
-import type { Goal } from './types';
-
 export interface PackInput {
   /** Lengths to cut (mm). */
   sizes: number[];
   /** Available board lengths (mm). */
   stocks: number[];
-  goal: Goal;
   /** performance.now() timestamp after which the search returns its best so far. */
   deadline: number;
 }
@@ -31,11 +28,11 @@ const CHILD_CAP = 120;
  * the search fills one whole board containing the largest remaining piece,
  * choosing among maximal fillings of every board length. Fillings that would
  * fit on a shorter board are skipped as dominated. Branch-and-bound on a
- * lower bound of total length / board count keeps it fast for household-sized
+ * lower bound on board count keeps it fast for household-sized
  * problems, and the deadline guarantees a best-so-far answer on bigger ones.
  */
 export function pack(input: PackInput): PackResult | null {
-  const { goal, deadline } = input;
+  const { deadline } = input;
   const stocks = [...new Set(input.stocks.filter((s) => s > 0))].sort((a, b) => a - b);
   const order = input.sizes.map((_, i) => i).sort((a, b) => input.sizes[b] - input.sizes[a]);
 
@@ -55,8 +52,8 @@ export function pack(input: PackInput): PackResult | null {
   const n = distinct.length;
   const maxStock = stocks[stocks.length - 1];
 
-  const score = (len: number, boards: number) =>
-    goal === 'length' ? len * 1000 + boards : boards * 1e7 + len;
+  // Fewest boards first, then least total length.
+  const score = (len: number, boards: number) => boards * 1e7 + len;
   const lowerBound = (len: number, boards: number, rem: number) =>
     score(len + rem, boards + Math.ceil(rem / maxStock));
 

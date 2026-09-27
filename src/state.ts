@@ -9,7 +9,6 @@ export const defaultSettings = (): Settings => ({
   marginMin: 30,
   marginMax: 100,
   stock: [3050, 4200],
-  goal: 'length',
 });
 
 export const newRoom = (name: string, lengths: [string, number][] = [['Wall 1', 0]]): Room => ({
@@ -37,8 +36,8 @@ export function loadState(): AppState {
     if (raw) {
       const parsed = JSON.parse(raw) as AppState;
       if (Array.isArray(parsed.rooms) && parsed.settings) {
-        const { marginPct, marginMin, marginMax, stock, goal } = { ...defaultSettings(), ...parsed.settings };
-        return { rooms: parsed.rooms, settings: { marginPct, marginMin, marginMax, stock: normaliseStock(stock), goal } };
+        const { marginPct, marginMin, marginMax, stock } = { ...defaultSettings(), ...parsed.settings };
+        return { rooms: parsed.rooms, settings: { marginPct, marginMin, marginMax, stock: normaliseStock(stock) } };
       }
     }
   } catch {

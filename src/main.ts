@@ -1,7 +1,9 @@
+import '@fontsource-variable/fraunces';
+import '@fontsource-variable/space-grotesk';
 import './style.css';
 import { loadState, newRoom, saveState, uid } from './state';
 import { readSharedState, shareUrl } from './share';
-import type { Board, Goal, PlanResult, Room } from './types';
+import type { Board, PlanResult, Room } from './types';
 
 const ROOM_COLORS = ['#3b76d4', '#e07b2f', '#1f9d6b', '#c2477f', '#7c5cd6', '#c29a1b', '#1d9aa6', '#d24b4b'];
 
@@ -35,10 +37,6 @@ app.innerHTML = `
         <div class="tags" id="stock">
           <input id="new-stock" type="text" inputmode="numeric" placeholder="Add…" aria-label="Add a board length in mm, then press Enter">
         </div>
-      </div>
-      <div class="segmented" role="radiogroup" aria-label="Optimise for">
-        <label><input type="radio" name="goal" value="length"><span>Least waste</span></label>
-        <label><input type="radio" name="goal" value="boards"><span>Fewest boards</span></label>
       </div>
     </div>
     <button class="share" data-action="share" type="button">
@@ -186,7 +184,6 @@ const marginInputs = ['marginPct', 'marginMin', 'marginMax'] as const;
 function renderSettings() {
   const s = state.settings;
   for (const k of marginInputs) $<HTMLInputElement>(`#${k}`).value = String(s[k]);
-  app.querySelectorAll<HTMLInputElement>('input[name="goal"]').forEach((r) => (r.checked = r.value === s.goal));
   renderStock();
 }
 
@@ -196,12 +193,6 @@ for (const k of marginInputs) {
     persistAndSolve();
   });
 }
-app.querySelectorAll<HTMLInputElement>('input[name="goal"]').forEach((r) =>
-  r.addEventListener('change', () => {
-    state.settings.goal = r.value as Goal;
-    persistAndSolve();
-  }),
-);
 
 function renderStock() {
   stockEl.querySelectorAll('.tag').forEach((t) => t.remove());

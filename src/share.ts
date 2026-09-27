@@ -1,5 +1,5 @@
 import { uid } from './state';
-import type { AppState, Goal } from './types';
+import type { AppState } from './types';
 
 /**
  * Compact, versioned encoding of the app state for share links:
@@ -7,9 +7,10 @@ import type { AppState, Goal } from './types';
  */
 type PackedRooms = [string, [string, number][]][];
 type Packed =
-  | [2, PackedRooms, [number, number, number, number[], Goal]]
-  // v1 stored selected and custom board lengths separately.
-  | [1, PackedRooms, [number, number, number, number[], number[], Goal]];
+  | [3, PackedRooms, [number, number, number, number[]]]
+  // Older links also stored an optimisation goal (and, in v1, custom lengths).
+  | [2, PackedRooms, [number, number, number, number[], string]]
+  | [1, PackedRooms, [number, number, number, number[], number[], string]];
 
 const toBase64Url = (bytes: Uint8Array) =>
   btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -25,9 +26,9 @@ async function transform(bytes: Uint8Array, stream: CompressionStream | Decompre
 export async function encodeState(state: AppState): Promise<string> {
   const s = state.settings;
   const packed: Packed = [
-    2,
+    3,
     state.rooms.map((r) => [r.name, r.walls.map((w) => [w.name, w.length] as [string, number])]),
-    [s.marginPct, s.marginMin, s.marginMax, s.stock, s.goal],
+    [s.marginPct, s.marginMin, s.marginMax, s.stock],
   ];
   const json = new TextEncoder().encode(JSON.stringify(packed));
   return toBase64Url(await transform(json, new CompressionStream('deflate-raw')));
@@ -37,10 +38,9 @@ export async function decodeState(code: string): Promise<AppState | null> {
   try {
     const json = await transform(fromBase64Url(code), new DecompressionStream('deflate-raw'));
     const packed = JSON.parse(new TextDecoder().decode(json)) as Packed;
-    if (packed[0] !== 1 && packed[0] !== 2) return null;
+    if (![1, 2, 3].includes(packed[0])) return null;
     const [, rooms, settings] = packed;
     const [marginPct, marginMin, marginMax, stockList] = settings;
-    const goal = settings[settings.length - 1];
     const stock = stockList.map(Number).filter((l) => l > 0);
 
     return {
@@ -54,7 +54,6 @@ export async function decodeState(code: string): Promise<AppState | null> {
         marginMin: Number(marginMin) || 0,
         marginMax: Number(marginMax) || 0,
         stock,
-        goal: goal === 'boards' ? 'boards' : 'length',
       },
     };
   } catch {

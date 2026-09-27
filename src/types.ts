@@ -11,15 +11,12 @@ export interface Room {
   walls: Wall[];
 }
 
-export type Goal = 'length' | 'boards';
-
 export interface Settings {
   marginPct: number;
   marginMin: number;
   marginMax: number;
   /** Board lengths available to order, in mm. */
   stock: number[];
-  goal: Goal;
 }
 
 export interface AppState {
