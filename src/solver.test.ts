@@ -10,7 +10,6 @@ const settings = (over: Partial<Settings> = {}): Settings => ({
   marginPct: 5,
   marginMin: 30,
   marginMax: 100,
-  kerf: 3,
   goal: 'length',
   stock: [
     { length: 3050, selected: true },
@@ -35,36 +34,30 @@ describe('margin', () => {
 
 describe('pack', () => {
   it('packs exact fits onto the fewest boards', () => {
-    const r = pack({ sizes: [2000, 2000, 1000, 1000], stocks: [3000], kerf: 0, goal: 'length', deadline: far() })!;
+    const r = pack({ sizes: [2000, 2000, 1000, 1000], stocks: [3000], goal: 'length', deadline: far() })!;
     expect(r.bins.length).toBe(2);
     expect(r.optimal).toBe(true);
   });
 
-  it('accounts for kerf between pieces', () => {
-    const r = pack({ sizes: [1500, 1500], stocks: [3000], kerf: 3, goal: 'length', deadline: far() })!;
-    expect(r.bins.length).toBe(2);
-  });
-
   it('mixes board lengths to minimise total length', () => {
     // 4100 needs a 4200; 2900 fits a 3050 — cheaper than two 4200s.
-    const r = pack({ sizes: [4100, 2900], stocks: [3050, 4200], kerf: 0, goal: 'length', deadline: far() })!;
+    const r = pack({ sizes: [4100, 2900], stocks: [3050, 4200], goal: 'length', deadline: far() })!;
     expect(r.bins.map((b) => b.stock).sort()).toEqual([3050, 4200]);
   });
 
   it('never overfills a board and uses every item once', () => {
     const sizes = [1234, 876, 2310, 540, 1990, 3001, 777, 1500, 1500, 420, 2600, 950];
-    const kerf = 3;
-    const r = pack({ sizes, stocks: [2400, 3050, 4200], kerf, goal: 'length', deadline: far() })!;
+    const r = pack({ sizes, stocks: [2400, 3050, 4200], goal: 'length', deadline: far() })!;
     const used = r.bins.flatMap((b) => b.items).sort((a, b) => a - b);
     expect(used).toEqual(sizes.map((_, i) => i));
     for (const b of r.bins) {
-      const total = b.items.reduce((t, i) => t + sizes[i], 0) + kerf * (b.items.length - 1);
+      const total = b.items.reduce((t, i) => t + sizes[i], 0);
       expect(total).toBeLessThanOrEqual(b.stock);
     }
   });
 
   it('returns null when a piece is longer than every board', () => {
-    expect(pack({ sizes: [5000], stocks: [4200], kerf: 0, goal: 'length', deadline: far() })).toBeNull();
+    expect(pack({ sizes: [5000], stocks: [4200], goal: 'length', deadline: far() })).toBeNull();
   });
 });
 
@@ -118,5 +111,23 @@ describe('large inputs', () => {
     expect(p.errors).toEqual([]);
     expect(p.totalWall).toBe(rooms.flatMap((r) => r.walls).reduce((a, w) => a + w.length, 0));
     for (const b of p.boards) expect(b.used).toBeLessThanOrEqual(b.stock);
+  });
+});
+
+describe('share links', () => {
+  it('round-trips state through the URL encoding', async () => {
+    const { encodeState, decodeState } = await import('./share');
+    const { defaultState } = await import('./state');
+    const state = defaultState();
+    state.settings.stock.push({ length: 5000, selected: true, custom: true });
+    state.settings.goal = 'boards';
+    const code = await encodeState(state);
+    expect(code).toMatch(/^[A-Za-z0-9_-]+$/);
+    const back = (await decodeState(code))!;
+    expect(back.rooms.map((r) => [r.name, r.walls.map((w) => [w.name, w.length])])).toEqual(
+      state.rooms.map((r) => [r.name, r.walls.map((w) => [w.name, w.length])]),
+    );
+    expect(back.settings).toEqual(state.settings);
+    expect(await decodeState('garbage')).toBeNull();
   });
 });

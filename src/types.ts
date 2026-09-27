@@ -23,8 +23,6 @@ export interface Settings {
   marginPct: number;
   marginMin: number;
   marginMax: number;
-  /** Width of material lost to each saw cut, in mm. */
-  kerf: number;
   stock: StockOption[];
   goal: Goal;
 }
@@ -54,7 +52,6 @@ export interface Piece {
 export interface Board {
   stock: number;
   pieces: Piece[];
-  /** Material consumed including saw kerfs. */
   used: number;
   offcut: number;
 }

@@ -114,7 +114,6 @@ export function plan(rooms: Room[], s: Settings, budgetMs = 2500): PlanResult {
     const res = pack({
       sizes: pieces.map((p) => p.cut),
       stocks,
-      kerf: Math.max(0, s.kerf),
       goal: s.goal,
       deadline: performance.now() + ms,
     });
@@ -171,15 +170,10 @@ export function plan(rooms: Room[], s: Settings, budgetMs = 2500): PlanResult {
     return empty;
   }
 
-  const kerf = Math.max(0, s.kerf);
   const boards: Board[] = best.res.bins
     .map((b) => {
       const pieces = b.items.map((i) => best!.pieces[i]).sort((x, y) => y.cut - x.cut);
-      const cutSum = pieces.reduce((t, p) => t + p.cut, 0);
-      const rawLeft = b.stock - cutSum;
-      // A kerf is lost between pieces, and before the offcut if there is one.
-      const kerfs = Math.max(0, pieces.length - 1) + (rawLeft - kerf * (pieces.length - 1) > 0 ? 1 : 0);
-      const used = Math.min(b.stock, cutSum + kerfs * kerf);
+      const used = pieces.reduce((t, p) => t + p.cut, 0);
       return { stock: b.stock, pieces, used, offcut: b.stock - used };
     })
     .sort((x, y) => y.stock - x.stock || x.offcut - y.offcut);

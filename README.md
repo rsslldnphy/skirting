@@ -11,8 +11,12 @@ each one.
 - Walls longer than your longest board are split into joined pieces, each with
   its own margin.
 
-The app then finds the cheapest mix of boards (least total length, or fewest
-boards) and draws a cutting diagram for every board.
+The app then finds the best mix of boards (least waste, or fewest boards) and
+shows a cutting guide for every board.
+
+Your measurements are saved in the browser. **Share** copies a link that holds
+all the data (compressed into the URL hash), so it opens pre-filled for anyone
+you send it to.
 
 It's a static, frontend-only TypeScript app built with Vite. The optimiser is a
 branch-and-bound cutting-stock solver (`src/solver.ts`) that runs in a Web

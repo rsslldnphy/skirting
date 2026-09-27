@@ -17,7 +17,6 @@ export const defaultSettings = (): Settings => ({
   marginPct: 5,
   marginMin: 30,
   marginMax: 100,
-  kerf: 3,
   stock: DEFAULT_STOCK.map((s) => ({ ...s })),
   goal: 'length',
 });
@@ -52,7 +51,8 @@ export function loadState(): AppState {
     if (raw) {
       const parsed = JSON.parse(raw) as AppState;
       if (Array.isArray(parsed.rooms) && parsed.settings) {
-        return { rooms: parsed.rooms, settings: { ...defaultSettings(), ...parsed.settings } };
+        const { marginPct, marginMin, marginMax, stock, goal } = { ...defaultSettings(), ...parsed.settings };
+        return { rooms: parsed.rooms, settings: { marginPct, marginMin, marginMax, stock, goal } };
       }
     }
   } catch {
