@@ -11,10 +11,7 @@ const settings = (over: Partial<Settings> = {}): Settings => ({
   marginMin: 30,
   marginMax: 100,
   goal: 'length',
-  stock: [
-    { length: 3050, selected: true },
-    { length: 4200, selected: true },
-  ],
+  stock: [3050, 4200],
   ...over,
 });
 
@@ -91,7 +88,7 @@ describe('plan', () => {
   });
 
   it('reports when no board length is selected', () => {
-    const p = plan([], settings({ stock: [{ length: 3050, selected: false }] }));
+    const p = plan([], settings({ stock: [] }));
     expect(p.errors.length).toBe(1);
   });
 });
@@ -119,7 +116,7 @@ describe('share links', () => {
     const { encodeState, decodeState } = await import('./share');
     const { defaultState } = await import('./state');
     const state = defaultState();
-    state.settings.stock.push({ length: 5000, selected: true, custom: true });
+    state.settings.stock.push(5000);
     state.settings.goal = 'boards';
     const code = await encodeState(state);
     expect(code).toMatch(/^[A-Za-z0-9_-]+$/);

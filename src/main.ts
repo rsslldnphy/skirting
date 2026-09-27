@@ -1,5 +1,4 @@
 import './style.css';
-import { marginFor } from './margin';
 import { loadState, newRoom, saveState, uid } from './state';
 import { readSharedState, shareUrl } from './share';
 import type { Board, Goal, PlanResult, Room } from './types';
@@ -12,7 +11,7 @@ const fmt = (n: number) => Math.round(n).toLocaleString('en-GB');
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 const num = (v: string) => {
-  const n = parseFloat(v);
+  const n = parseFloat(v.replace(/[,\s]/g, ''));
   return Number.isFinite(n) ? n : 0;
 };
 const roomColor = (roomId: string) => {
@@ -23,51 +22,40 @@ const roomColor = (roomId: string) => {
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <header class="top">
-    <h1>Skirting calculator</h1>
-    <button class="btn" data-action="share" type="button">
+    <h1>Skirting</h1>
+    <div class="bar">
+      <div class="bar-group">
+        <span class="bar-label">Margin</span>
+        <label class="inline"><input id="marginPct" type="number" min="0" step="0.5" inputmode="decimal" aria-label="Margin percent"><span>%</span></label>
+        <label class="inline"><span>min</span><input id="marginMin" type="number" min="0" step="5" inputmode="numeric" aria-label="Minimum margin in mm"></label>
+        <label class="inline"><span>max</span><input id="marginMax" type="number" min="0" step="5" inputmode="numeric" aria-label="Maximum margin in mm"><span>mm</span></label>
+      </div>
+      <div class="bar-group boards">
+        <span class="bar-label">Boards</span>
+        <div class="tags" id="stock">
+          <input id="new-stock" type="text" inputmode="numeric" placeholder="Add…" aria-label="Add a board length in mm, then press Enter">
+        </div>
+      </div>
+      <div class="segmented" role="radiogroup" aria-label="Optimise for">
+        <label><input type="radio" name="goal" value="length"><span>Least waste</span></label>
+        <label><input type="radio" name="goal" value="boards"><span>Fewest boards</span></label>
+      </div>
+    </div>
+    <button class="share" data-action="share" type="button">
       <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 11.5a3.5 3.5 0 0 0 5 0l2.5-2.5a3.5 3.5 0 0 0-5-5L10 5m1.5 3.5a3.5 3.5 0 0 0-5 0L4 11a3.5 3.5 0 0 0 5 5l1-1"/></svg>
       Share
     </button>
   </header>
 
   <main class="layout">
-    <div class="inputs">
-      <section class="panel">
-        <div class="panel-head">
-          <h2>Walls</h2>
-          <button class="link" data-action="clear" type="button">Clear</button>
-        </div>
-        <div id="rooms"></div>
-        <button class="link add" data-action="add-room" type="button">+ Add room</button>
-      </section>
-
-      <section class="panel">
-        <h2>Margin per piece</h2>
-        <div class="margin-row">
-          <label class="field"><span>Percent</span><div class="unit"><input id="marginPct" type="number" min="0" step="0.5" inputmode="decimal"><i>%</i></div></label>
-          <label class="field"><span>Min</span><div class="unit"><input id="marginMin" type="number" min="0" step="5" inputmode="numeric"><i>mm</i></div></label>
-          <label class="field"><span>Max</span><div class="unit"><input id="marginMax" type="number" min="0" step="5" inputmode="numeric"><i>mm</i></div></label>
-        </div>
-        <p class="note" id="margin-example"></p>
-      </section>
-
-      <section class="panel">
-        <h2>Board lengths</h2>
-        <div id="stock" class="chips"></div>
-        <form id="add-stock" class="add-stock">
-          <div class="unit"><input id="new-stock" type="number" min="100" step="10" placeholder="Add length" inputmode="numeric" aria-label="Add a board length in mm"><i>mm</i></div>
-          <button class="btn subtle" type="submit">Add</button>
-        </form>
-        <div class="goal">
-          <span>Optimise for</span>
-          <div class="segmented" role="radiogroup" aria-label="Optimise for">
-            <label><input type="radio" name="goal" value="length"><span>Least waste</span></label>
-            <label><input type="radio" name="goal" value="boards"><span>Fewest boards</span></label>
-          </div>
-        </div>
-      </section>
-    </div>
-
+    <section class="walls-col">
+      <div class="section-head">
+        <h2>Walls</h2>
+        <button class="link" data-action="clear" type="button">Clear</button>
+      </div>
+      <div id="rooms"></div>
+      <button class="link add-room" data-action="add-room" type="button">+ Add room</button>
+    </section>
     <section class="results" id="results" aria-live="polite"></section>
   </main>
   <div class="toast" id="toast" role="status"></div>
@@ -76,6 +64,7 @@ app.innerHTML = `
 const $ = <T extends HTMLElement>(sel: string) => app.querySelector<T>(sel)!;
 const roomsEl = $('#rooms');
 const stockEl = $('#stock');
+const stockInput = $<HTMLInputElement>('#new-stock');
 const resultsEl = $('#results');
 
 function persistAndSolve() {
@@ -104,7 +93,7 @@ function renderRooms() {
       <div class="room-head">
         <i class="dot" aria-hidden="true"></i>
         <input class="room-name" data-field="room-name" value="${esc(room.name)}" aria-label="Room name" placeholder="Room name">
-        <span class="room-total" data-total>${fmt(roomTotal(room))} mm</span>
+        <span class="room-total" data-total>${fmt(roomTotal(room))}</span>
         <button class="x" data-action="remove-room" type="button" aria-label="Remove ${esc(room.name)}">×</button>
       </div>
       ${room.walls
@@ -112,12 +101,12 @@ function renderRooms() {
           (w) => `
         <div class="wall" data-wall="${w.id}">
           <input data-field="wall-name" value="${esc(w.name)}" aria-label="Wall name" placeholder="Wall">
-          <div class="unit"><input data-field="wall-length" type="number" min="0" step="1" inputmode="numeric" value="${w.length || ''}" placeholder="0" aria-label="Length in mm"><i>mm</i></div>
+          <label class="len"><input data-field="wall-length" type="number" min="0" step="1" inputmode="numeric" value="${w.length || ''}" placeholder="0" aria-label="Length in mm"><span>mm</span></label>
           <button class="x" data-action="remove-wall" type="button" aria-label="Remove wall">×</button>
         </div>`,
         )
         .join('')}
-      <button class="link add" data-action="add-wall" type="button">+ Add wall</button>
+      <button class="link add-wall" data-action="add-wall" type="button">+ Add wall</button>
     </div>`,
     )
     .join('');
@@ -137,7 +126,7 @@ roomsEl.addEventListener('input', (e) => {
     if (field === 'wall-name') wall.name = t.value;
     if (field === 'wall-length') {
       wall.length = Math.max(0, num(t.value));
-      t.closest('.room')!.querySelector('[data-total]')!.textContent = `${fmt(roomTotal(room))} mm`;
+      t.closest('.room')!.querySelector('[data-total]')!.textContent = fmt(roomTotal(room));
     }
   }
   persistAndSolve();
@@ -181,14 +170,12 @@ app.addEventListener('click', (e) => {
   } else {
     const room = findRoom(btn);
     if (!room) return;
-    if (action === 'add-wall') addWall(room);
+    if (action === 'add-wall') return addWall(room);
     if (action === 'remove-room') state.rooms = state.rooms.filter((r) => r !== room);
     if (action === 'remove-wall')
       room.walls = room.walls.filter((w) => w.id !== btn.closest<HTMLElement>('[data-wall]')?.dataset.wall);
-    if (action !== 'add-wall') {
-      renderRooms();
-      persistAndSolve();
-    }
+    renderRooms();
+    persistAndSolve();
   }
 });
 
@@ -200,22 +187,12 @@ function renderSettings() {
   const s = state.settings;
   for (const k of marginInputs) $<HTMLInputElement>(`#${k}`).value = String(s[k]);
   app.querySelectorAll<HTMLInputElement>('input[name="goal"]').forEach((r) => (r.checked = r.value === s.goal));
-  renderMarginExample();
   renderStock();
-}
-
-function renderMarginExample() {
-  const s = state.settings;
-  $('#margin-example').innerHTML =
-    s.marginMin > s.marginMax
-      ? '<span class="warn">Min is above max.</span>'
-      : [500, 1500, 4000].map((l) => `${fmt(l)} → +${fmt(marginFor(l, s))}`).join('<span class="sep">·</span>');
 }
 
 for (const k of marginInputs) {
   $<HTMLInputElement>(`#${k}`).addEventListener('input', (e) => {
     state.settings[k] = Math.max(0, num((e.target as HTMLInputElement).value));
-    renderMarginExample();
     persistAndSolve();
   });
 }
@@ -227,45 +204,57 @@ app.querySelectorAll<HTMLInputElement>('input[name="goal"]').forEach((r) =>
 );
 
 function renderStock() {
-  stockEl.innerHTML = [...state.settings.stock]
-    .sort((a, b) => a.length - b.length)
+  stockEl.querySelectorAll('.tag').forEach((t) => t.remove());
+  const tags = [...state.settings.stock]
+    .sort((a, b) => a - b)
     .map(
-      (o) => `
-    <span class="chip${o.selected ? ' on' : ''}">
-      <button type="button" data-stock="${o.length}" aria-pressed="${o.selected}">${fmt(o.length)}</button>${
-        o.custom ? `<button type="button" class="chip-x" data-stock-remove="${o.length}" aria-label="Remove ${o.length} mm">×</button>` : ''
-      }
-    </span>`,
+      (l) =>
+        `<span class="tag">${fmt(l)}<button type="button" data-stock-remove="${l}" aria-label="Remove ${fmt(l)} mm">×</button></span>`,
     )
     .join('');
+  stockInput.insertAdjacentHTML('beforebegin', tags);
 }
 
-stockEl.addEventListener('click', (e) => {
-  const t = e.target as HTMLElement;
-  const rm = t.closest<HTMLElement>('[data-stock-remove]');
-  if (rm) {
-    state.settings.stock = state.settings.stock.filter((o) => o.length !== Number(rm.dataset.stockRemove));
-  } else {
-    const b = t.closest<HTMLElement>('[data-stock]');
-    const o = b && state.settings.stock.find((x) => x.length === Number(b.dataset.stock));
-    if (!o) return;
-    o.selected = !o.selected;
+function commitStock(): boolean {
+  const len = Math.round(num(stockInput.value));
+  if (!stockInput.value.trim()) return false;
+  if (len < 100 || len > 20000) {
+    stockEl.classList.add('invalid');
+    return false;
   }
+  if (!state.settings.stock.includes(len)) state.settings.stock.push(len);
+  stockInput.value = '';
   renderStock();
   persistAndSolve();
-});
+  return true;
+}
 
-$('#add-stock').addEventListener('submit', (e) => {
-  e.preventDefault();
-  const input = $<HTMLInputElement>('#new-stock');
-  const len = Math.round(num(input.value));
-  if (len < 100) return;
-  const existing = state.settings.stock.find((o) => o.length === len);
-  if (existing) existing.selected = true;
-  else state.settings.stock.push({ length: len, selected: true, custom: true });
-  input.value = '';
-  renderStock();
-  persistAndSolve();
+stockInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
+    e.preventDefault();
+    commitStock();
+  } else if (e.key === 'Backspace' && !stockInput.value && state.settings.stock.length) {
+    const sorted = [...state.settings.stock].sort((a, b) => a - b);
+    state.settings.stock = state.settings.stock.filter((l) => l !== sorted[sorted.length - 1]);
+    renderStock();
+    persistAndSolve();
+  }
+});
+stockInput.addEventListener('input', () => stockEl.classList.remove('invalid'));
+stockInput.addEventListener('blur', () => {
+  if (!commitStock()) {
+    stockInput.value = '';
+    stockEl.classList.remove('invalid');
+  }
+});
+stockEl.addEventListener('click', (e) => {
+  const rm = (e.target as HTMLElement).closest<HTMLElement>('[data-stock-remove]');
+  if (rm) {
+    state.settings.stock = state.settings.stock.filter((l) => l !== Number(rm.dataset.stockRemove));
+    renderStock();
+    persistAndSolve();
+  }
+  stockInput.focus();
 });
 
 // ---------- Sharing ----------
@@ -324,29 +313,24 @@ function solve() {
 
 function renderResults(p: PlanResult) {
   if (p.boards.length === 0) {
-    resultsEl.innerHTML = `<section class="panel empty">${
-      p.errors.length ? p.errors.map((e) => `<p class="warn">${esc(e)}</p>`).join('') : '<p class="note">Add wall lengths to see what to order.</p>'
-    }</section>`;
+    resultsEl.innerHTML = `<div class="empty">${
+      p.errors.length ? p.errors.map((e) => `<p class="warn">${esc(e)}</p>`).join('') : '<p>Add wall lengths to see what to order.</p>'
+    }</div>`;
     return;
   }
 
   const maxStock = Math.max(...p.boards.map((b) => b.stock));
   resultsEl.innerHTML = `
-    <section class="panel">
-      <h2>Order</h2>
-      <div class="order">
-        ${p.order.map((o) => `<div class="order-line"><b>${o.count}</b><span>× ${fmt(o.length)} mm</span></div>`).join('')}
-      </div>
-      ${p.errors.map((e) => `<p class="warn">${esc(e)}</p>`).join('')}
-    </section>
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Cutting guide</h2>
-        <button class="link" data-action="print" type="button">Print</button>
-      </div>
-      <p class="note lead">Lengths in mm. The faded end of each piece is its margin.</p>
-      <div class="guide">${p.boards.map((b, i) => renderBoard(b, i, maxStock)).join('')}</div>
-    </section>
+    <div class="order">
+      ${p.order.map((o) => `<div class="order-line"><b>${o.count}</b><span>× ${fmt(o.length)} mm</span></div>`).join('')}
+    </div>
+    ${p.errors.map((e) => `<p class="warn">${esc(e)}</p>`).join('')}
+    <div class="section-head guide-head">
+      <h2>Cutting guide</h2>
+      <button class="link" data-action="print" type="button">Print</button>
+    </div>
+    <div class="guide">${p.boards.map((b, i) => renderBoard(b, i, maxStock)).join('')}</div>
+    <p class="hint">Lengths in mm, each including its margin (the faded end).</p>
   `;
 }
 
@@ -371,8 +355,8 @@ function renderBoard(b: Board, index: number, maxStock: number): string {
   }
   return `
     <div class="board">
-      <div class="board-meta"><span class="idx">#${index + 1}</span>${fmt(b.stock)}</div>
-      <div class="track"><div class="track-inner" style="width:${(b.stock / maxStock) * 100}%">${segs.join('')}</div></div>
+      <div class="board-meta"><span class="idx">${String(index + 1).padStart(2, '0')}</span>${fmt(b.stock)}</div>
+      <div class="track" style="width:${(b.stock / maxStock) * 100}%">${segs.join('')}</div>
     </div>`;
 }
 

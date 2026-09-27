@@ -1,23 +1,14 @@
-import type { AppState, Room, Settings, StockOption } from './types';
+import type { AppState, Room, Settings } from './types';
 
 const KEY = 'skirting:v1';
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
-export const DEFAULT_STOCK: StockOption[] = [
-  { length: 2400, selected: false },
-  { length: 3000, selected: false },
-  { length: 3050, selected: true },
-  { length: 3600, selected: false },
-  { length: 4200, selected: true },
-  { length: 4800, selected: false },
-];
-
 export const defaultSettings = (): Settings => ({
   marginPct: 5,
   marginMin: 30,
   marginMax: 100,
-  stock: DEFAULT_STOCK.map((s) => ({ ...s })),
+  stock: [3050, 4200],
   goal: 'length',
 });
 
@@ -32,6 +23,14 @@ export const defaultState = (): AppState => ({
   settings: defaultSettings(),
 });
 
+/** Accepts current (number[]) and older ({ length, selected }[]) saved formats. */
+function normaliseStock(stock: unknown): number[] {
+  if (!Array.isArray(stock)) return defaultSettings().stock;
+  return stock
+    .map((o) => (typeof o === 'number' ? o : o && o.selected ? Number(o.length) : 0))
+    .filter((l) => l > 0);
+}
+
 export function loadState(): AppState {
   try {
     const raw = localStorage.getItem(KEY);
@@ -39,7 +38,7 @@ export function loadState(): AppState {
       const parsed = JSON.parse(raw) as AppState;
       if (Array.isArray(parsed.rooms) && parsed.settings) {
         const { marginPct, marginMin, marginMax, stock, goal } = { ...defaultSettings(), ...parsed.settings };
-        return { rooms: parsed.rooms, settings: { marginPct, marginMin, marginMax, stock, goal } };
+        return { rooms: parsed.rooms, settings: { marginPct, marginMin, marginMax, stock: normaliseStock(stock), goal } };
       }
     }
   } catch {

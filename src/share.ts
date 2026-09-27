@@ -1,15 +1,15 @@
-import { defaultSettings, uid } from './state';
+import { uid } from './state';
 import type { AppState, Goal } from './types';
 
 /**
  * Compact, versioned encoding of the app state for share links:
  * JSON arrays → deflate → base64url, stored in the URL hash.
  */
-type Packed = [
-  1,
-  [string, [string, number][]][],
-  [number, number, number, number[], number[], Goal],
-];
+type PackedRooms = [string, [string, number][]][];
+type Packed =
+  | [2, PackedRooms, [number, number, number, number[], Goal]]
+  // v1 stored selected and custom board lengths separately.
+  | [1, PackedRooms, [number, number, number, number[], number[], Goal]];
 
 const toBase64Url = (bytes: Uint8Array) =>
   btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -25,16 +25,9 @@ async function transform(bytes: Uint8Array, stream: CompressionStream | Decompre
 export async function encodeState(state: AppState): Promise<string> {
   const s = state.settings;
   const packed: Packed = [
-    1,
+    2,
     state.rooms.map((r) => [r.name, r.walls.map((w) => [w.name, w.length] as [string, number])]),
-    [
-      s.marginPct,
-      s.marginMin,
-      s.marginMax,
-      s.stock.filter((o) => o.selected).map((o) => o.length),
-      s.stock.filter((o) => o.custom).map((o) => o.length),
-      s.goal,
-    ],
+    [s.marginPct, s.marginMin, s.marginMax, s.stock, s.goal],
   ];
   const json = new TextEncoder().encode(JSON.stringify(packed));
   return toBase64Url(await transform(json, new CompressionStream('deflate-raw')));
@@ -43,14 +36,12 @@ export async function encodeState(state: AppState): Promise<string> {
 export async function decodeState(code: string): Promise<AppState | null> {
   try {
     const json = await transform(fromBase64Url(code), new DecompressionStream('deflate-raw'));
-    const [version, rooms, [marginPct, marginMin, marginMax, selected, custom, goal]] = JSON.parse(
-      new TextDecoder().decode(json),
-    ) as Packed;
-    if (version !== 1) return null;
-
-    const stock = defaultSettings().stock;
-    for (const length of custom) if (!stock.some((o) => o.length === length)) stock.push({ length, selected: false, custom: true });
-    for (const o of stock) o.selected = selected.includes(o.length);
+    const packed = JSON.parse(new TextDecoder().decode(json)) as Packed;
+    if (packed[0] !== 1 && packed[0] !== 2) return null;
+    const [, rooms, settings] = packed;
+    const [marginPct, marginMin, marginMax, stockList] = settings;
+    const goal = settings[settings.length - 1];
+    const stock = stockList.map(Number).filter((l) => l > 0);
 
     return {
       rooms: rooms.map(([name, walls]) => ({

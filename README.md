@@ -6,8 +6,8 @@ each one.
 - Enter the walls in each room, in millimetres.
 - Every piece gets a cutting margin: a percentage of its length, kept between a
   minimum and a maximum (defaults: 5%, 30 mm to 100 mm).
-- Choose which board lengths you can buy (3,050 mm and 4,200 mm are selected by
-  default), or add your own.
+- List the board lengths you can buy (3,050 mm and 4,200 mm by default): type a
+  length and press Enter to add it, or × to remove one.
 - Walls longer than your longest board are split into joined pieces, each with
   its own margin.
 

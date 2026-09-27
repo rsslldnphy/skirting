@@ -11,19 +11,14 @@ export interface Room {
   walls: Wall[];
 }
 
-export interface StockOption {
-  length: number;
-  selected: boolean;
-  custom?: boolean;
-}
-
 export type Goal = 'length' | 'boards';
 
 export interface Settings {
   marginPct: number;
   marginMin: number;
   marginMax: number;
-  stock: StockOption[];
+  /** Board lengths available to order, in mm. */
+  stock: number[];
   goal: Goal;
 }
 

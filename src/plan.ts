@@ -57,7 +57,7 @@ interface WallRef {
 
 export function plan(rooms: Room[], s: Settings, budgetMs = 2500): PlanResult {
   const errors: string[] = [];
-  const stocks = [...new Set(s.stock.filter((o) => o.selected && o.length > 0).map((o) => o.length))];
+  const stocks = [...new Set(s.stock.filter((l) => l > 0))];
   const empty: PlanResult = {
     boards: [],
     pieces: [],
@@ -70,7 +70,7 @@ export function plan(rooms: Room[], s: Settings, budgetMs = 2500): PlanResult {
     errors,
   };
   if (stocks.length === 0) {
-    errors.push('Select at least one board length to order.');
+    errors.push('Add a board length to order.');
     return empty;
   }
 
